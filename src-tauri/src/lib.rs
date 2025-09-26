@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use serde::{Deserialize, Serialize};
-use tauri::{Emitter, Window};
+use tauri::{Emitter, Manager, Window};
+
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct VideoFormat {
@@ -1222,8 +1223,32 @@ async fn transcribe_file(filePath: String) -> Result<String, String> {
 
 
 
+
+
+
+#[tauri::command]
+async fn show_main_window(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("main") {
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+        Ok(())
+    } else {
+        Err("Main window not found".to_string())
+    }
+}
+
+#[tauri::command]
+async fn quit_app(app: tauri::AppHandle) -> Result<(), String> {
+    app.exit(0);
+    Ok(())
+}
+
+
+
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
@@ -1241,8 +1266,12 @@ pub fn run() {
             transcribe_tiktok,
             transcribe_universal,
             transcribe_file,
+            show_main_window,
+            quit_app,
         ])
         .setup(|_app| {
+            println!("Grably Desktop initialized - using bundled yt-dlp binary");
+            
             // Pre-warm the binaries on app startup to avoid first-run delays
             std::thread::spawn(|| {
                 println!("Pre-warming yt-dlp binary...");

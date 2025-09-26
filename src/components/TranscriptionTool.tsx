@@ -61,6 +61,7 @@ export const TranscriptionTool: React.FC<{ onBack: () => void }> = ({ onBack }) 
   const [method, setMethod] = useState('whisper');
   const [jobs, setJobs] = useState<TranscriptionJob[]>([]);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  
 
   const generateJobId = () => `job-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -139,8 +140,13 @@ export const TranscriptionTool: React.FC<{ onBack: () => void }> = ({ onBack }) 
         result = await invoke('transcribe_file', { filePath: job.filePath });
         console.log('Transcription result:', result);
       } else if (job.platform === 'youtube') {
-        // Transcribe YouTube
-        result = await invoke('transcribe_youtube', { url: job.url });
+        // Transcribe YouTube with appropriate method
+        if (method === 'native') {
+          result = await invoke('transcribe_youtube', { url: job.url });
+        } else {
+          // Use Whisper - treat as universal URL
+          result = await invoke('transcribe_universal', { url: job.url });
+        }
       } else if (job.platform === 'tiktok') {
         // Transcribe TikTok
         result = await invoke('transcribe_tiktok', { url: job.url });
@@ -279,6 +285,7 @@ export const TranscriptionTool: React.FC<{ onBack: () => void }> = ({ onBack }) 
     navigator.clipboard.writeText(transcription);
     toast.success('Copied to clipboard!');
   };
+
 
   const downloadTranscription = (job: TranscriptionJob) => {
     if (!job.transcription) return;
@@ -507,6 +514,7 @@ export const TranscriptionTool: React.FC<{ onBack: () => void }> = ({ onBack }) 
                 })}
               </div>
             </div>
+
 
             {/* Add to Queue Button */}
             <button

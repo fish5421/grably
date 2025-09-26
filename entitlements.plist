@@ -25,5 +25,11 @@
     <!-- Allow spawning subprocesses (for yt-dlp, ffmpeg) -->
     <key>com.apple.security.inherit</key>
     <true/>
+    
+    <!-- WebKit/WebView permissions -->
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+    <key>com.apple.security.cs.disable-executable-page-protection</key>
+    <true/>
 </dict>
 </plist>
