@@ -245,8 +245,11 @@ async fn is_playlist(url: String) -> Result<bool, String> {
 #[tauri::command]
 async fn get_youtube_info(url: String) -> Result<VideoInfo, String> {
     println!("Getting info for URL: {}", url);
-    let args = vec!["-j", "--no-playlist", &url];
-    
+    let mut args = vec!["-j", "--no-playlist"];
+
+
+    args.push(&url);
+
     let output = Command::new(&get_ytdlp_path())
         .args(&args)
         .output()
@@ -443,8 +446,11 @@ async fn download_youtube(
     let window_for_title = window.clone();
     let download_id_for_title = download_id.clone();
     std::thread::spawn(move || {
+        let mut title_args = vec!["--get-title"];
+        title_args.push(&url_for_title);
+
         if let Ok(output) = Command::new(&get_ytdlp_path())
-            .args(&["--get-title", &url_for_title])
+            .args(&title_args)
             .output() {
             if let Ok(title) = String::from_utf8(output.stdout) {
                 let title = title.trim().to_string();
@@ -769,9 +775,9 @@ async fn transcribe_with_whisper(url: &str) -> Result<String, String> {
         "--audio-format", "mp3",
         "--audio-quality", "5",
         "-o", audio_path_str,
-        // Don't add any user-agent or headers - let yt-dlp use its defaults
-        // Facebook seems to block custom headers now
     ]);
+
+    // For other platforms, let yt-dlp use its defaults
     
     // Check for cookies file
     let cookies_path = PathBuf::from("/tmp/cookies.txt");
@@ -861,7 +867,7 @@ async fn download_universal(window: Window, url: String, site_type: Option<Strin
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         "--add-header",
         "Accept-Language:en-US,en;q=0.9",
-        "--add-header", 
+        "--add-header",
         "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
         "--add-header",
         "Sec-Fetch-Mode:navigate",
@@ -951,8 +957,11 @@ async fn download_universal(window: Window, url: String, site_type: Option<Strin
     let download_id_for_title = download_id.clone();
     let _site_type_for_title = site_type.clone();
     std::thread::spawn(move || {
+        let mut title_args = vec!["--get-title"];
+        title_args.push(&url_for_title);
+
         if let Ok(output) = Command::new(&get_ytdlp_path())
-            .args(&["--get-title", &url_for_title])
+            .args(&title_args)
             .output() {
             if let Ok(title) = String::from_utf8(output.stdout) {
                 let title = title.trim().to_string();
@@ -1250,7 +1259,6 @@ async fn quit_app(app: tauri::AppHandle) -> Result<(), String> {
 pub fn run() {
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
