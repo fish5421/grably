@@ -55,9 +55,21 @@ entitlements.plist
 Grably-for-notarization.zip
 CREDITS.md
 
-# Private folders
+# Private folders and files
 /landing-page/
+/landing-page-test-2/
 /landing.html
+/downloads/
+/test_downloads/
+
+# Private/personal files
+FeaturesToAdd.md
+ISSUES_AND_SOLUTIONS.md
+project-index.txt
+gg.txt
+mmm.txt
+latest.json
+upload.log
 
 # Private scripts
 create-universal-dmg.sh
