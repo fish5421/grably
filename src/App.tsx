@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
-import { Youtube, Globe2, Headphones, ArrowRight, Github, Settings, RefreshCw, X } from 'lucide-react';
+import { Youtube, Globe2, Headphones, ArrowRight, Github } from 'lucide-react';
 import Typewriter from 'typewriter-effect';
 import { YouTubeDownloader } from './components/YouTubeDownloader';
 import { UniversalDownloader } from './components/UniversalDownloader';
@@ -9,7 +9,6 @@ import { TranscriptionTool } from './components/TranscriptionTool';
 import { ActiveDownloads } from './components/ActiveDownloads';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-shell';
-import { check } from '@tauri-apps/plugin-updater';
 
 const tools = [
   {
@@ -40,8 +39,6 @@ function App() {
   const [hoveredCard, setHoveredCard] = useState<number | null>(null);
   const [subtitleVisible, setSubtitleVisible] = useState(false);
   const [freePercentage, setFreePercentage] = useState(100);
-  const [showSettings, setShowSettings] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
   
 
   useEffect(() => {
@@ -132,24 +129,6 @@ function App() {
     }, 5000);
   }, []);
 
-  const handleAppUpdateCheck = async () => {
-    setIsUpdating(true);
-
-    try {
-      const update = await check();
-      if (update?.available) {
-        toast.success('Update available! Installing...', { duration: 3000 });
-        await update.downloadAndInstall();
-      } else {
-        toast.success('App is up to date!', { duration: 3000 });
-      }
-    } catch (error) {
-      console.error('Update check failed:', error);
-      toast.error('Failed to check for updates', { duration: 3000 });
-    } finally {
-      setIsUpdating(false);
-    }
-  };
 
   const renderView = () => {
     switch(activeView) {
@@ -171,16 +150,6 @@ function App() {
               />
             </div>
 
-            {/* Settings Icon */}
-            <div className="fixed top-32 left-6 z-50">
-              <button
-                onClick={() => setShowSettings(true)}
-                className="p-3 bg-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 group hover:rotate-90"
-                title="Settings"
-              >
-                <Settings className="h-6 w-6 text-gray-600 group-hover:text-orange-500 transition-colors" />
-              </button>
-            </div>
 
             {/* GitHub Link */}
             <div className="fixed top-6 right-6 z-50">
@@ -336,47 +305,6 @@ function App() {
 
       {renderView()}
 
-      {/* Settings Modal */}
-      {showSettings && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900" style={{fontFamily: 'Space Mono, monospace'}}>
-                Settings
-              </h2>
-              <button
-                onClick={() => setShowSettings(false)}
-                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <X className="h-5 w-5 text-gray-500" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="border-t pt-4">
-                <button
-                  onClick={handleAppUpdateCheck}
-                  disabled={isUpdating}
-                  className="w-full flex items-center justify-center gap-2 p-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{fontFamily: 'Space Mono, monospace'}}
-                >
-                  {isUpdating ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      Checking for updates...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4" />
-                      Check for App Updates
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
 
       {/* Active Downloads Widget */}
