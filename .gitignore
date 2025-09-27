@@ -132,6 +132,9 @@ error.log
 .temp
 .docusaurus
 
+# Wrangler/Cloudflare R2 cache and state
+.wrangler/
+
 # Windows
 Thumbs.db
 ehthumbs.db
