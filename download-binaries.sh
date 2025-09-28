@@ -39,6 +39,7 @@ if [ ! -x "$RESOURCES_DIR/whisper" ]; then
         echo "Error: make is required to build whisper.cpp (install Xcode Command Line Tools)"; exit 1
       fi
       TMP_DIR="$(mktemp -d)"
+      ABS_RESOURCES_DIR="$(realpath "$RESOURCES_DIR")"
       echo "Building whisper.cpp (this may take a few minutes)..."
       (
         cd "$TMP_DIR" || exit 1
@@ -67,8 +68,8 @@ if [ ! -x "$RESOURCES_DIR/whisper" ]; then
           echo "Contents of ./bin (if exists):"; ls -la ./bin 2>/dev/null || true
           exit 1
         fi
-        cp "$FOUND" "$RESOURCES_DIR/whisper"
-        chmod +x "$RESOURCES_DIR/whisper"
+        cp "$FOUND" "$ABS_RESOURCES_DIR/whisper"
+        chmod +x "$ABS_RESOURCES_DIR/whisper"
         echo "Installed whisper binary from $FOUND to $RESOURCES_DIR/whisper"
       )
       RC=$?
