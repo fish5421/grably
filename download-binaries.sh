@@ -26,8 +26,66 @@ chmod +x "$RESOURCES_DIR/ffmpeg"
 echo "Downloading Whisper model..."
 curl -L https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin -o "$RESOURCES_DIR/ggml-base.en.bin"
 
-# Download Whisper binary (you'll need to build this from source or provide a URL)
-echo "Note: Whisper binary needs to be built from source or downloaded separately"
-echo "Visit: https://github.com/ggerganov/whisper.cpp"
+# Ensure Whisper binary exists, or offer to build from source
+if [ ! -x "$RESOURCES_DIR/whisper" ]; then
+  echo "Whisper binary not found at $RESOURCES_DIR/whisper"
+  read -r -p "Do you want to clone and build whisper.cpp now? [y/N]: " reply
+  case $reply in
+    [Yy]*)
+      if ! command -v git >/dev/null 2>&1; then
+        echo "Error: git is required to build whisper.cpp"; exit 1
+      fi
+      if ! command -v make >/dev/null 2>&1; then
+        echo "Error: make is required to build whisper.cpp (install Xcode Command Line Tools)"; exit 1
+      fi
+      TMP_DIR="$(mktemp -d)"
+      echo "Building whisper.cpp (this may take a few minutes)..."
+      (
+        cd "$TMP_DIR" || exit 1
+        git clone --depth=1 https://github.com/ggml-org/whisper.cpp.git
+        cd whisper.cpp || exit 1
+        make -j"$(sysctl -n hw.ncpu 2>/dev/null || echo 4)" || make || exit 1
+        # Locate built binary (upstream may place it in bin/)
+        CANDIDATES=(
+          "./main"
+          "./bin/main"
+          "./build/bin/main"
+          "./build/main"
+          "./whisper"
+          "./bin/whisper"
+          "./bin/whisper-cli"
+          "./whisper-cli"
+        )
+        FOUND=""
+        for f in "${CANDIDATES[@]}"; do
+          if [ -f "$f" ]; then
+            FOUND="$f"; break
+          fi
+        done
+        if [ -z "$FOUND" ]; then
+          echo "Build finished but whisper binary not found (checked: ${CANDIDATES[*]}).";
+          echo "Contents of ./bin (if exists):"; ls -la ./bin 2>/dev/null || true
+          exit 1
+        fi
+        cp "$FOUND" "$RESOURCES_DIR/whisper"
+        chmod +x "$RESOURCES_DIR/whisper"
+        echo "Installed whisper binary from $FOUND to $RESOURCES_DIR/whisper"
+      )
+      RC=$?
+      rm -rf "$TMP_DIR"
+      if [ $RC -ne 0 ]; then
+        echo "Failed to build whisper.cpp automatically."
+        echo "Manual steps: git clone https://github.com/ggml-org/whisper.cpp; cd whisper.cpp; make; cp ./bin/main \"$RESOURCES_DIR/whisper\" 2>/dev/null || cp ./main \"$RESOURCES_DIR/whisper\"; chmod +x \"$RESOURCES_DIR/whisper\""
+        exit 1
+      fi
+      ;;
+    *)
+      echo "Skipping whisper.cpp build. The app build will fail until $RESOURCES_DIR/whisper exists."
+      echo "Manual steps: git clone https://github.com/ggml-org/whisper.cpp; cd whisper.cpp; make; cp ./bin/main \"$RESOURCES_DIR/whisper\" 2>/dev/null || cp ./main \"$RESOURCES_DIR/whisper\"; chmod +x \"$RESOURCES_DIR/whisper\""
+      ;;
+  esac
+else
+  echo "Whisper binary already present."
+fi
 
-echo "Done! Binaries downloaded to $RESOURCES_DIR"
+echo "Done! Binaries are in $RESOURCES_DIR"
