@@ -37,7 +37,24 @@ export const SkipSilencePlayer: React.FC<SkipSilencePlayerProps> = ({ onBack }) 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      console.log('📁 File selected:', file.name, file.type);
+
+      // Clean up previous resources
+      if (videoUrl) {
+        URL.revokeObjectURL(videoUrl);
+      }
+
+      // Reset audio context for new file
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        console.log('🔇 Closing previous audio context');
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+        sourceRef.current = null;
+        analyserRef.current = null;
+      }
+
       const url = URL.createObjectURL(file);
+      console.log('📎 Created blob URL:', url);
       setVideoUrl(url);
 
       // Reset playback state
@@ -45,17 +62,24 @@ export const SkipSilencePlayer: React.FC<SkipSilencePlayerProps> = ({ onBack }) 
       setCurrentTime(0);
       setDuration(0);
       setIsSilent(false);
+      setTimeSaved(0);
+      timeSavedRef.current = 0;
+      lastUpdateTimeRef.current = null;
+      lastMediaTimeRef.current = 0;
     }
   };
 
   // Initialize audio analysis when video loads
   const handleVideoLoaded = () => {
+    console.log('🎬 Video metadata loaded');
     if (videoRef.current) {
       setDuration(videoRef.current.duration);
+      console.log('📹 Video duration:', videoRef.current.duration);
 
       // Setup Web Audio API (only once per video element)
       if (!audioContextRef.current && !sourceRef.current) {
         try {
+          console.log('🎵 Setting up Web Audio API...');
           audioContextRef.current = new AudioContext();
           analyserRef.current = audioContextRef.current.createAnalyser();
           analyserRef.current.fftSize = 2048;
@@ -64,9 +88,17 @@ export const SkipSilencePlayer: React.FC<SkipSilencePlayerProps> = ({ onBack }) 
           sourceRef.current = audioContextRef.current.createMediaElementSource(videoRef.current);
           sourceRef.current.connect(analyserRef.current);
           analyserRef.current.connect(audioContextRef.current.destination);
+
+          console.log('✅ Web Audio API setup complete:', {
+            contextState: audioContextRef.current.state,
+            sampleRate: audioContextRef.current.sampleRate,
+            fftSize: analyserRef.current.fftSize
+          });
         } catch (error) {
-          console.error('Failed to setup audio analysis:', error);
+          console.error('❌ Failed to setup audio analysis:', error);
         }
+      } else {
+        console.log('⚠️ Web Audio API already initialized');
       }
     }
   };
@@ -74,11 +106,17 @@ export const SkipSilencePlayer: React.FC<SkipSilencePlayerProps> = ({ onBack }) 
   // Audio analysis loop with time saved calculation
   const analyzeAudio = () => {
     if (!analyserRef.current || !videoRef.current || !isPlaying) {
+      console.log('❌ Audio analysis stopped:', {
+        analyser: !!analyserRef.current,
+        video: !!videoRef.current,
+        isPlaying
+      });
       return;
     }
 
     // Resume audio context if suspended (browser autoplay policy)
     if (audioContextRef.current?.state === 'suspended') {
+      console.log('🔊 Resuming suspended audio context');
       audioContextRef.current.resume();
     }
 
@@ -98,6 +136,7 @@ export const SkipSilencePlayer: React.FC<SkipSilencePlayerProps> = ({ onBack }) 
 
       // Update state periodically (every ~500ms to avoid too many re-renders)
       if (Math.floor(now / 500) !== Math.floor((now - wallClockDelta * 1000) / 500)) {
+        console.log('💾 Time saved update:', timeSavedRef.current.toFixed(2), 'seconds');
         setTimeSaved(timeSavedRef.current);
       }
     }
@@ -109,13 +148,36 @@ export const SkipSilencePlayer: React.FC<SkipSilencePlayerProps> = ({ onBack }) 
     const dataArray = new Uint8Array(bufferLength);
     analyserRef.current.getByteTimeDomainData(dataArray);
 
+    // Check if we're getting valid audio data
+    const hasAudioData = dataArray.some(val => val !== 128);
+    if (!hasAudioData && Math.random() < 0.05) {
+      console.warn('⚠️ No audio data detected - all values are 128!');
+    }
+
     // Calculate RMS amplitude
     let sum = 0;
+    let min = 255;
+    let max = 0;
     for (let i = 0; i < bufferLength; i++) {
       const value = (dataArray[i] - 128) / 128;
       sum += value * value;
+      min = Math.min(min, dataArray[i]);
+      max = Math.max(max, dataArray[i]);
     }
     const rms = Math.sqrt(sum / bufferLength);
+
+    // Log RMS value periodically for debugging
+    if (Math.random() < 0.02) { // Log ~2% of the time to avoid spam
+      console.log('📊 Audio Analysis:', {
+        rms: rms.toFixed(4),
+        threshold: threshold,
+        isSilent: rms < threshold,
+        dataRange: `${min}-${max}`,
+        hasData: hasAudioData,
+        playbackRate: videoRef.current.playbackRate,
+        currentSpeed: isSilent ? silenceSpeed : normalSpeed
+      });
+    }
 
     // Detect silence
     const currentIsSilent = rms < threshold;
@@ -125,12 +187,14 @@ export const SkipSilencePlayer: React.FC<SkipSilencePlayerProps> = ({ onBack }) 
       // Start tracking silence duration
       if (silenceStartTimeRef.current === null) {
         silenceStartTimeRef.current = silenceNow;
+        console.log('🔇 Silence detected, started tracking');
       } else {
         // Check if silence duration exceeds minimum
         const silenceDuration = (silenceNow - silenceStartTimeRef.current) / 1000;
         if (silenceDuration >= minSilence) {
           // Apply silence speed
           if (videoRef.current.playbackRate !== silenceSpeed) {
+            console.log(`⏩ Applying silence speed: ${silenceSpeed}x (silence duration: ${silenceDuration.toFixed(1)}s)`);
             videoRef.current.playbackRate = silenceSpeed;
             setIsSilent(true);
           }
@@ -138,8 +202,12 @@ export const SkipSilencePlayer: React.FC<SkipSilencePlayerProps> = ({ onBack }) 
       }
     } else {
       // Reset to normal speed when sound returns
+      if (silenceStartTimeRef.current !== null) {
+        console.log('🔊 Audio detected, resetting to normal speed');
+      }
       silenceStartTimeRef.current = null;
       if (videoRef.current.playbackRate !== normalSpeed) {
+        console.log(`⏯️ Applying normal speed: ${normalSpeed}x`);
         videoRef.current.playbackRate = normalSpeed;
         setIsSilent(false);
       }
@@ -151,9 +219,14 @@ export const SkipSilencePlayer: React.FC<SkipSilencePlayerProps> = ({ onBack }) 
 
   // Play/Pause control
   const togglePlayback = () => {
-    if (!videoRef.current) return;
+    console.log('🎮 Toggle playback called, current state:', isPlaying);
+    if (!videoRef.current) {
+      console.error('❌ No video ref!');
+      return;
+    }
 
     if (isPlaying) {
+      console.log('⏸️ Pausing video...');
       videoRef.current.pause();
       setIsPlaying(false);
       if (animationIdRef.current) {
@@ -163,19 +236,40 @@ export const SkipSilencePlayer: React.FC<SkipSilencePlayerProps> = ({ onBack }) 
       // Reset time tracking on pause
       lastUpdateTimeRef.current = null;
     } else {
-      // Resume audio context if suspended
-      if (audioContextRef.current?.state === 'suspended') {
-        audioContextRef.current.resume();
+      console.log('▶️ Starting playback...');
+
+      // Check audio context state
+      if (audioContextRef.current) {
+        console.log('🔊 Audio context state:', audioContextRef.current.state);
+        if (audioContextRef.current.state === 'suspended') {
+          console.log('🔊 Resuming suspended audio context');
+          audioContextRef.current.resume();
+        }
+      } else {
+        console.warn('⚠️ No audio context available!');
       }
 
       videoRef.current.play().then(() => {
+        console.log('✅ Video playing successfully');
         setIsPlaying(true);
         // Reset time tracking on play
         lastUpdateTimeRef.current = null;
         lastMediaTimeRef.current = videoRef.current?.currentTime || 0;
+
+        // Check if audio analysis is ready
+        if (!analyserRef.current || !audioContextRef.current) {
+          console.warn('⚠️ Audio analysis not ready, initializing now...');
+          handleVideoLoaded();
+        }
+
+        console.log('🚀 Starting audio analysis...', {
+          hasAnalyser: !!analyserRef.current,
+          hasContext: !!audioContextRef.current,
+          hasSource: !!sourceRef.current
+        });
         analyzeAudio();
       }).catch(error => {
-        console.error('Error playing video:', error);
+        console.error('❌ Error playing video:', error);
         setIsPlaying(false);
       });
     }
@@ -327,12 +421,18 @@ export const SkipSilencePlayer: React.FC<SkipSilencePlayerProps> = ({ onBack }) 
               <video
                 ref={videoRef}
                 src={videoUrl}
-                crossOrigin="anonymous"
                 onLoadedMetadata={handleVideoLoaded}
                 onTimeUpdate={handleTimeUpdate}
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
+                onPlay={() => {
+                  console.log('🎵 Video onPlay event fired');
+                  setIsPlaying(true);
+                }}
+                onPause={() => {
+                  console.log('⏸️ Video onPause event fired');
+                  setIsPlaying(false);
+                }}
                 onEnded={() => {
+                  console.log('⏹️ Video onEnded event fired');
                   setIsPlaying(false);
                   if (animationIdRef.current) {
                     cancelAnimationFrame(animationIdRef.current);
@@ -394,7 +494,7 @@ export const SkipSilencePlayer: React.FC<SkipSilencePlayerProps> = ({ onBack }) 
               </div>
 
               {/* Time Saved Display */}
-              {videoUrl && timeSaved !== 0 && (
+              {videoUrl && (
                 <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border-2 border-green-200">
                   <div className="flex items-center justify-between">
                     <div>
