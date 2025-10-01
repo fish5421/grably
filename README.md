@@ -179,7 +179,7 @@ Grably is a tool for downloading content that you have the right to access. Plea
 
 - **Issues**: [GitHub Issues](https://github.com/ceorkm/grably/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/ceorkm/grably/discussions)
-- **Email**: support@grably.app
+- **Email**: support@grably.space
 
 ---
 
