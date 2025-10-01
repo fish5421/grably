@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
-import { Youtube, Globe2, Headphones, ArrowRight, Github } from 'lucide-react';
+import { Youtube, Globe2, Headphones, Video, ArrowRight, Github } from 'lucide-react';
 import Typewriter from 'typewriter-effect';
 import { YouTubeDownloader } from './components/YouTubeDownloader';
 import { UniversalDownloader } from './components/UniversalDownloader';
 import { TranscriptionTool } from './components/TranscriptionTool';
+import { SkipSilencePlayer } from './components/SkipSilencePlayer';
 import { ActiveDownloads } from './components/ActiveDownloads';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-shell';
@@ -31,6 +32,13 @@ const tools = [
     description: 'Convert videos to text instantly',
     icon: Headphones,
     font: 'Archivo Black, sans-serif',
+  },
+  {
+    id: 'player',
+    title: 'Player',
+    description: 'Play files with Skip Silence',
+    icon: Video,
+    font: 'Courier Prime, monospace',
   },
 ];
 
@@ -138,6 +146,8 @@ function App() {
         return <UniversalDownloader onBack={() => setActiveView('home')} />;
       case 'transcribe':
         return <TranscriptionTool onBack={() => setActiveView('home')} />;
+      case 'player':
+        return <SkipSilencePlayer onBack={() => setActiveView('home')} />;
       default:
         return (
           <div className="max-w-6xl mx-auto px-4 py-16">
@@ -194,7 +204,7 @@ function App() {
             </div>
 
             {/* Tools Grid with crazy fonts */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-20">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-20">
               {tools.map((tool, index) => {
                 const Icon = tool.icon;
                 const isHovered = hoveredCard === index;
