@@ -177,8 +177,8 @@ Grably is a tool for downloading content that you have the right to access. Plea
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/grably/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/grably/discussions)
+- **Issues**: [GitHub Issues](https://github.com/ceorkm/grably/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/ceorkm/grably/discussions)
 - **Email**: support@grably.app
 
 ---
